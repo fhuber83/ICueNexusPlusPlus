@@ -1,12 +1,20 @@
 // C/C++ standard headers
 #include <iostream>
 #include <chrono>
+#include <thread>
+#include <format>
+#include <csignal>
+
+// OS-dependant headers
+#include <unistd.h>
 
 // 3rd party headers
 #include <SDL3/SDL.h>
 #include <SDL3_ttf/SDL_ttf.h>
 
 // Project headers
+#include <cmath>
+
 #include "ICueNexus.h"
 
 
@@ -41,6 +49,13 @@ using FontPtr    = std::unique_ptr<TTF_Font,    TTFFontDeleter>;
     return f;
 }
 
+volatile bool run = true;
+
+void SIGINT_Handler(int signum)
+{
+    run = false;
+}
+
 
 int main()
 {
@@ -61,38 +76,51 @@ int main()
         auto canvas = makeSurface(ICueNexus::SCREEN_WIDTH, ICueNexus::SCREEN_HEIGHT, SDL_PIXELFORMAT_BGRA32);
 
         // Clear screen (fill with a dark blue color)
-        {
-            const SDL_PixelFormatDetails * fmtDetails = SDL_GetPixelFormatDetails(canvas->format);
+        const SDL_PixelFormatDetails * fmtDetails = SDL_GetPixelFormatDetails(canvas->format);
 
-            const Uint32 backgroundColor = SDL_MapRGB(fmtDetails, nullptr, 15, 15, 40);
-
-            SDL_FillSurfaceRect(canvas.get(), nullptr, backgroundColor);
-        }
+        const Uint32 backgroundColor = SDL_MapRGB(fmtDetails, nullptr, 15, 15, 40);
 
         const auto font = openFont("/usr/share/fonts/truetype/dejavu/DejaVuSans-Bold.ttf", 28.0f);
 
         constexpr SDL_Color foregroundColor{ 220, 220, 255, 255 };
 
-        const SurfacePtr textSurface{TTF_RenderText_Blended(font.get(), "Hello, Nexus!", 0, foregroundColor)};
+        // Install signal handler for CTRL-C
+        std::signal(SIGINT, SIGINT_Handler);
 
-        if (!textSurface)
-            throw std::runtime_error(SDL_GetError());
-
-        // Center text on screen
-        const SDL_Rect fontCenteredRect
+        while (run)
         {
-            (ICueNexus::SCREEN_WIDTH - textSurface->w) / 2,
-            (ICueNexus::SCREEN_HEIGHT - textSurface->h) / 2,
-            textSurface->w,
-            textSurface->h
-        };
+            SDL_FillSurfaceRect(canvas.get(), nullptr, backgroundColor);
 
-        // Copy ("blit") rendered text to our main surface
-        SDL_BlitSurface(textSurface.get(), nullptr, canvas.get(), &fontCenteredRect);
+            auto truncated = std::chrono::zoned_time{
+                std::chrono::current_zone(),
+                std::chrono::floor<std::chrono::seconds>(std::chrono::system_clock::now())
+            };
 
-        // Display image on iCUE Nexus
-        ICueNexus nexus;
-        nexus.ShowImage(static_cast<uint8_t *>(canvas.get()->pixels));
+            auto foo = std::format("{:%H:%M:%S}", truncated);
+
+            const SurfacePtr textSurface{TTF_RenderText_Blended(font.get(), foo.c_str(), 0, foregroundColor)};
+
+            if (!textSurface)
+                throw std::runtime_error(SDL_GetError());
+
+            // Center text on screen
+            const SDL_Rect fontCenteredRect
+            {
+                (ICueNexus::SCREEN_WIDTH - textSurface->w) / 2,
+                (ICueNexus::SCREEN_HEIGHT - textSurface->h) / 2,
+                textSurface->w,
+                textSurface->h
+            };
+
+            // Copy ("blit") rendered text to our main surface
+            SDL_BlitSurface(textSurface.get(), nullptr, canvas.get(), &fontCenteredRect);
+
+            // Display image on iCUE Nexus
+            ICueNexus nexus;
+            nexus.ShowImage(static_cast<uint8_t *>(canvas.get()->pixels));
+
+            std::this_thread::sleep_for(std::chrono::milliseconds(500));
+        }
     }
     catch (const std::exception& ex)
     {
