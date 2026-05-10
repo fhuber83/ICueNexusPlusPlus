@@ -80,7 +80,7 @@ int main()
 
         const Uint32 backgroundColor = SDL_MapRGB(fmtDetails, nullptr, 15, 15, 40);
 
-        const auto font = openFont("/usr/share/fonts/truetype/dejavu/DejaVuSans-Bold.ttf", 28.0f);
+        const auto font = openFont("font.ttf", 28.0f);
 
         constexpr SDL_Color foregroundColor{ 220, 220, 255, 255 };
 

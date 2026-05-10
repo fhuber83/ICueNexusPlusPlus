@@ -12,3 +12,6 @@ add_executable(HID_Test
 
 target_link_libraries(HID_Test PRIVATE hidapi-hidraw)
 target_link_libraries(HID_Test PRIVATE SDL3::SDL3 SDL3_ttf::SDL3_ttf)
+
+file(COPY ${CMAKE_CURRENT_SOURCE_DIR}/font.ttf
+     DESTINATION ${CMAKE_CURRENT_BINARY_DIR})
