@@ -1,22 +1,17 @@
 // C/C++ standard headers
-#include <iostream>
 #include <chrono>
-#include <thread>
-#include <format>
+#include <cmath>
 #include <csignal>
-
-// OS-dependant headers
-#include <unistd.h>
+#include <format>
+#include <iostream>
+#include <thread>
 
 // 3rd party headers
 #include <SDL3/SDL.h>
 #include <SDL3_ttf/SDL_ttf.h>
 
 // Project headers
-#include <cmath>
-
 #include <ICueNexus.h>
-
 
 // RAII deleters
 struct SDLSurfaceDeleter { void operator()(SDL_Surface* s) const { SDL_DestroySurface(s); } };
