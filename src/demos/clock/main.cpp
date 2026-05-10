@@ -15,7 +15,7 @@
 // Project headers
 #include <cmath>
 
-#include "ICueNexus.h"
+#include <ICueNexus.h>
 
 
 // RAII deleters
