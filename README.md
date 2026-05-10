@@ -11,6 +11,20 @@ The iCUE software has several problems though:
 
 For that reason, I created a simple C++ wrapper around [`libusb`](https://github.com/libusb/libusb) that should (hopefully) be pretty straightforward to use.
 
+# Building
+
+Prerequisites:
+- `hidapi-hidraw`
+- `SDL3`
+- `SDL3_ttf`
+
+```bash
+git clone https://github.com/fhuber83/ICueNexusPlusPlus.git
+cd ICueNexusPlusPlus
+cmake -B build
+cmake --build build
+```
+
 # Examples
 
 ## Basic
