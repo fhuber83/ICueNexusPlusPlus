@@ -1,59 +1,108 @@
+// C/C++ standard headers
 #include <iostream>
-#include <array>
-#include <iomanip>
 #include <chrono>
 
+// 3rd party headers
+#include <SDL3/SDL.h>
+#include <SDL3_ttf/SDL_ttf.h>
+
+// Project headers
 #include "ICueNexus.h"
 
 
-/**
- * Creates a test image that is filled with one color
- *
- * @param red   Red component of the color (0-255)
- * @param green Green component of the color (0-255)
- * @param blue  Blue component of the color (0-255)
- *
- * @return Raw byte array containing the image data (no headers)
- */
-constexpr std::array<std::uint8_t, ICueNexus::SCREEN_WIDTH * ICueNexus::SCREEN_HEIGHT * 4> CreateTestImage(uint8_t red, uint8_t green, uint8_t blue)
+// RAII deleters
+struct SDLSurfaceDeleter { void operator()(SDL_Surface* s) const { SDL_DestroySurface(s); } };
+struct TTFFontDeleter    { void operator()(TTF_Font*    f) const { TTF_CloseFont(f); }      };
+
+using SurfacePtr = std::unique_ptr<SDL_Surface, SDLSurfaceDeleter>;
+using FontPtr    = std::unique_ptr<TTF_Font,    TTFFontDeleter>;
+
+
+// Helper function to create an SDL render surface
+[[nodiscard]] SurfacePtr makeSurface(int w, int h, SDL_PixelFormat fmt)
 {
-    std::array<std::uint8_t, ICueNexus::SCREEN_WIDTH * ICueNexus::SCREEN_HEIGHT * 4> image{};
+    SurfacePtr s{ SDL_CreateSurface(w, h, fmt) };
 
-    for (size_t i = 0; i < image.size(); i += 4)
-    {
-        image[i + 0] = blue;
-        image[i + 1] = green;
-        image[i + 2] = red;
-        image[i + 3] = 255;
-    }
+    if (!s)
+        throw std::runtime_error(SDL_GetError());
 
-    return image;
+    return s;
 }
 
+
+// Helper function to open a font file
+[[nodiscard]] FontPtr openFont(const char* path, float ptsize)
+{
+    FontPtr f{ TTF_OpenFont(path, ptsize) };
+
+    if (!f)
+        throw std::runtime_error(SDL_GetError());
+
+    return f;
+}
 
 
 int main()
 {
-    ICueNexus nexus;
-
-    nexus.SetBrightness(100);
-    nexus.StopAnimation();
-    nexus.BlankScreen();
-
-    const auto t1 = std::chrono::high_resolution_clock::now();
-
-    for (int i = 0; i < 256; i++)
+    if (!SDL_Init(SDL_INIT_VIDEO))
     {
-        auto test_image = CreateTestImage(0, 0, i); // Red image
-        nexus.ShowImage(test_image.data());
+        throw std::runtime_error(SDL_GetError());
     }
 
-    std::chrono::high_resolution_clock::time_point t2 = std::chrono::high_resolution_clock::now();
+    if (!TTF_Init())
+    {
+        SDL_Quit();
+        throw std::runtime_error(SDL_GetError());
+    }
 
-    const auto time_per_frame_us = std::chrono::duration_cast<std::chrono::microseconds>(t2 - t1).count();
+    try
+    {
+        // Create a surface with the exact dimensions and pixel format as the iCUE Nexus
+        auto canvas = makeSurface(ICueNexus::SCREEN_WIDTH, ICueNexus::SCREEN_HEIGHT, SDL_PIXELFORMAT_BGRA32);
 
-    const double frame_s = static_cast<double>(time_per_frame_us) * 1E-6;
-    const double fps = 256.0 / frame_s;
+        // Clear screen (fill with a dark blue color)
+        {
+            const SDL_PixelFormatDetails * fmtDetails = SDL_GetPixelFormatDetails(canvas->format);
 
-    std::cout << "256 images sent in " << std::setprecision(3) << std::fixed << frame_s << "s (" << std::setprecision(1) << fps << " fps)" << std::endl;
+            const Uint32 backgroundColor = SDL_MapRGB(fmtDetails, nullptr, 15, 15, 40);
+
+            SDL_FillSurfaceRect(canvas.get(), nullptr, backgroundColor);
+        }
+
+        const auto font = openFont("/usr/share/fonts/truetype/dejavu/DejaVuSans-Bold.ttf", 28.0f);
+
+        constexpr SDL_Color foregroundColor{ 220, 220, 255, 255 };
+
+        const SurfacePtr textSurface{TTF_RenderText_Blended(font.get(), "Hello, Nexus!", 0, foregroundColor)};
+
+        if (!textSurface)
+            throw std::runtime_error(SDL_GetError());
+
+        // Center text on screen
+        const SDL_Rect fontCenteredRect
+        {
+            (ICueNexus::SCREEN_WIDTH - textSurface->w) / 2,
+            (ICueNexus::SCREEN_HEIGHT - textSurface->h) / 2,
+            textSurface->w,
+            textSurface->h
+        };
+
+        // Copy ("blit") rendered text to our main surface
+        SDL_BlitSurface(textSurface.get(), nullptr, canvas.get(), &fontCenteredRect);
+
+        // Display image on iCUE Nexus
+        ICueNexus nexus;
+        nexus.ShowImage(static_cast<uint8_t *>(canvas.get()->pixels));
+    }
+    catch (const std::exception& ex)
+    {
+        std::cerr << "Error: " << ex.what() << '\n';
+        TTF_Quit();
+        SDL_Quit();
+        return 1;
+    }
+
+    TTF_Quit();
+    SDL_Quit();
+    return 0;
 }
