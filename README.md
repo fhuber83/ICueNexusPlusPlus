@@ -31,3 +31,17 @@ int main()
     nexus.PlayAnimation(2, true);
 }
 ```
+
+## Rendering with SDL3
+
+To display an `SDL_Surface` on the Nexus, simply create a surface in the correct format and pass a pointer to its pixel data to `ShowImage()`:
+
+```cpp
+// Surface dimensions must be 640x48 and pixel format must be SDL_PIXELFORMAT_BGRA32
+SDL_Surface canvas = ...;
+
+ICueNexus nexus;
+nexus.ShowImage(static_cast<uint8_t *>(canvas.get()->pixels));
+```
+
+For a full example, see the included `main.cpp` file.
