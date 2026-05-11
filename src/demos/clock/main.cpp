@@ -79,6 +79,8 @@ int main()
 
         constexpr SDL_Color foregroundColor{ 220, 220, 255, 255 };
 
+        ICueNexus nexus;
+
         // Install signal handler for CTRL-C
         std::signal(SIGINT, SIGINT_Handler);
 
@@ -111,11 +113,12 @@ int main()
             SDL_BlitSurface(textSurface.get(), nullptr, canvas.get(), &fontCenteredRect);
 
             // Display image on iCUE Nexus
-            ICueNexus nexus;
             nexus.ShowImage(static_cast<uint8_t *>(canvas.get()->pixels));
 
             std::this_thread::sleep_for(std::chrono::milliseconds(500));
         }
+        
+        nexus.PlayAnimation(1, true);
     }
     catch (const std::exception& ex)
     {
@@ -124,6 +127,8 @@ int main()
         SDL_Quit();
         return 1;
     }
+
+
 
     TTF_Quit();
     SDL_Quit();
